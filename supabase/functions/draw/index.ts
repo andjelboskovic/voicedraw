@@ -73,9 +73,14 @@ Deno.serve(async (req) => {
                 event.type === "content_block_delta" &&
                 event.delta?.text
               ) {
-                await writer.write(
-                  encoder.encode(`data: ${event.delta.text}\n\n`)
-                );
+                // Each newline in the text would break SSE framing,
+                // so send each line as a separate data: field
+                const textLines = event.delta.text.split("\n");
+                for (const tl of textLines) {
+                  await writer.write(
+                    encoder.encode(`data: ${tl}\n\n`)
+                  );
+                }
               }
               if (event.type === "message_stop") {
                 await writer.write(encoder.encode("data: [DONE]\n\n"));
