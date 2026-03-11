@@ -3,7 +3,7 @@ import { streamTranscript } from "@/lib/claude";
 import { createEmptyScene, applyIntent, sceneToContext } from "@/lib/sceneGraph";
 import type { Scene, SceneIntent } from "@/types/scene";
 
-const DEBOUNCE_MS = 1200;
+const DEBOUNCE_MS = 600;
 
 export function useDrawEngine(transcript: string) {
   const [scene, setScene] = useState<Scene>(createEmptyScene);
