@@ -3,7 +3,7 @@ import { streamTranscript } from "@/lib/claude";
 import { createEmptyScene, applyIntent, sceneToContext } from "@/lib/sceneGraph";
 import type { Scene, SceneIntent } from "@/types/scene";
 
-const DEBOUNCE_MS = 400;
+const DEBOUNCE_MS = 1200;
 
 export function useDrawEngine(transcript: string) {
   const [scene, setScene] = useState<Scene>(createEmptyScene);
@@ -17,6 +17,8 @@ export function useDrawEngine(transcript: string) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const sceneRef = useRef<Scene>(scene);
+  const activeRef = useRef(false);
+  const pendingRef = useRef<string | null>(null);
 
   // Keep ref in sync so callbacks always read latest scene
   useEffect(() => {
@@ -24,12 +26,20 @@ export function useDrawEngine(transcript: string) {
   }, [scene]);
 
   const processTranscript = useCallback(async (text: string) => {
+    // If a stream is active, queue this request instead of aborting mid-stream
+    if (activeRef.current) {
+      pendingRef.current = text;
+      return;
+    }
+
+    // Abort any previous (shouldn't happen, but safety)
     if (abortRef.current) {
       abortRef.current.abort();
     }
 
     const controller = new AbortController();
     abortRef.current = controller;
+    activeRef.current = true;
 
     setIsProcessing(true);
     setError(null);
@@ -43,33 +53,28 @@ export function useDrawEngine(transcript: string) {
       const result = await streamTranscript(
         text,
         context,
-        // onIntent callback
         (intent) => {
           setStreamingIntent(intent);
 
           if (intent.action === "move" || intent.action === "delete" || intent.action === "clear") {
-            // Instant actions — apply immediately, no SVG streaming
             setScene((prev) => applyIntent(prev, intent));
           } else {
-            // create/update — set streaming ID so canvas shows progressive render
             setStreamingId(intent.id);
           }
         },
-        // onSvgChunk callback
         (svgSoFar) => {
           setStreamingSvg(svgSoFar);
         },
         controller.signal
       );
 
-      // Stream complete
+      // Stream complete — commit
       if (result.intent) {
-        // Commit final SVG into scene graph for create/update
         if (result.intent.action === "create" || result.intent.action === "update") {
           setScene((prev) => applyIntent(prev, result.intent!, result.svg));
         }
       } else if (result.svg) {
-        // Fallback: legacy raw SVG — create a single "scene_1" object as full replacement
+        // Fallback: legacy raw SVG
         setScene((prev) => {
           const fallbackIntent: SceneIntent = {
             action: "create",
@@ -77,7 +82,6 @@ export function useDrawEngine(transcript: string) {
             label: "full scene",
             transform: { x: 500, y: 350, scale: 1, rotate: 0 },
           };
-          // Clear existing and replace with single object
           const cleared = applyIntent(prev, { action: "clear", id: "_", label: "_" });
           return applyIntent(cleared, fallbackIntent, result.svg);
         });
@@ -88,11 +92,19 @@ export function useDrawEngine(transcript: string) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "Failed to process");
     } finally {
+      activeRef.current = false;
       if (abortRef.current === controller) {
         setIsProcessing(false);
         setStreamingId(null);
         setStreamingIntent(null);
         setStreamingSvg("");
+      }
+
+      // Process queued request if any
+      const pending = pendingRef.current;
+      if (pending && pending !== lastProcessedRef.current) {
+        pendingRef.current = null;
+        processTranscript(pending);
       }
     }
   }, []);
