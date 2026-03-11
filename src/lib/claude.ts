@@ -13,9 +13,20 @@ function cleanSvg(raw: string): string {
   return text.trim();
 }
 
+function cleanPreamble(raw: string): string {
+  let text = raw.trim();
+  // Strip markdown code fences: ```json ... ``` or ``` ... ```
+  text = text.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?\s*```$/, "");
+  return text.trim();
+}
+
 function parseIntent(raw: string): SceneIntent | null {
+  const cleaned = cleanPreamble(raw);
+  // Try to extract JSON object from the text
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
   try {
-    const parsed = JSON.parse(raw.trim());
+    const parsed = JSON.parse(jsonMatch[0]);
     if (parsed && parsed.action && parsed.id) {
       return parsed as SceneIntent;
     }
