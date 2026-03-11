@@ -44,7 +44,7 @@ export async function streamTranscript(
       sceneContext,
       systemPrompt: SYSTEM_PROMPT,
       model: "claude-haiku-4-5-20251001",
-      maxTokens: 1500,
+      maxTokens: 2500,
     }),
     signal,
   });
