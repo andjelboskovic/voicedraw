@@ -114,7 +114,7 @@ const DrawCanvas = ({ scene, streamingId, streamingIntent, streamingSvg, isProce
           return (
             <g
               key={obj.id}
-              transform={`translate(${t.x},${t.y}) scale(${t.scale}) rotate(${t.rotate})`}
+              transform={`translate(${t.x - 200 * t.scale},${t.y - 150 * t.scale}) scale(${t.scale}) rotate(${t.rotate})`}
               style={{
                 transition: "transform 0.3s ease",
                 opacity: isStreaming ? 0.7 : 1,
@@ -128,7 +128,7 @@ const DrawCanvas = ({ scene, streamingId, streamingIntent, streamingSvg, isProce
         {/* New object being created (not yet in scene map) */}
         {isNewCreate && streamingIntent && (
           <g
-            transform={`translate(${streamingIntent.transform?.x ?? 500},${streamingIntent.transform?.y ?? 350}) scale(${streamingIntent.transform?.scale ?? 1}) rotate(${streamingIntent.transform?.rotate ?? 0})`}
+            transform={`translate(${(streamingIntent.transform?.x ?? 500) - 200 * (streamingIntent.transform?.scale ?? 1)},${(streamingIntent.transform?.y ?? 350) - 150 * (streamingIntent.transform?.scale ?? 1)}) scale(${streamingIntent.transform?.scale ?? 1}) rotate(${streamingIntent.transform?.rotate ?? 0})`}
             style={{ opacity: 0.7, transition: "transform 0.3s ease" }}
           >
             <ObjectRenderer svg={streamingSvg} />
